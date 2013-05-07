@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <link href='https://fonts.googleapis.com/css?family=Chivo:900' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen" />
+    <link rel="stylesheet" type="text/css" href="stylesheets/pygment_trac.css" media="screen" />
+    <link rel="stylesheet" type="text/css" href="stylesheets/print.css" media="print" />
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <title>Wela by Mortimerp9</title>
+  </head>
+
+  <body>
+    <div id="container">
+      <div class="inner">
+
+        <header>
+          <h1>Wela</h1>
+          <h2>A Scala wrapper around Weka Machine Learning java library</h2>
+        </header>
+
+        <section id="downloads" class="clearfix">
+          <a href="https://github.com/Mortimerp9/wela/zipball/master" id="download-zip" class="button"><span>Download .zip</span></a>
+          <a href="https://github.com/Mortimerp9/wela/tarball/master" id="download-tar-gz" class="button"><span>Download .tar.gz</span></a>
+          <a href="https://github.com/Mortimerp9/wela" id="view-on-github" class="button"><span>View on GitHub</span></a>
+        </section>
+
+        <hr>
+
+        <section id="main_content">
+          <h1>wela</h1>
+
+<p>A Scala wrapper around <a href="http://www.cs.waikato.ac.nz/ml/weka">Weka Machine</a> Learning java library.</p>
+
+<p>This is currently a very preliminary development. It is just a wrapper around the main classification features that I personally need to help perform predictions from scala code.</p>
+
+<p>The current code already tries to simplify the use of Weka by adding more type safety and making the code more straightforward to code. As it's a light wrapper around Weka features, even if it tries to make things more immutable and "pure", there are loads of scary bits in it.</p>
+
+<h2>Usage</h2>
+
+<p>The scala syntax already simplifies the use of Weka in your core quite a lot. This is an example based on the <a href="http://weka.wikispaces.com/Programmatic+Use">Weka Programmatic Use example</a>:</p>
+
+<ol>
+<li>Create a problema define the prediction label and dataset attributes:</li>
+</ol><div class="highlight"><pre>  <span class="k">val</span> <span class="n">pbl</span> <span class="k">=</span> <span class="nc">Problem</span><span class="o">(</span><span class="s">"test"</span><span class="o">,</span> <span class="nc">NominalAttribute</span><span class="o">(</span><span class="-Symbol">'color</span><span class="o">,</span> <span class="nc">Seq</span><span class="o">(</span><span class="-Symbol">'red</span><span class="o">,</span> <span class="-Symbol">'blue</span><span class="o">,</span> <span class="-Symbol">'green</span><span class="o">)))</span> <span class="n">withAttributes</span><span class="o">(</span><span class="nc">NumericAttribute</span><span class="o">(</span><span class="-Symbol">'size</span><span class="o">),</span> <span class="nc">NumericAttribute</span><span class="o">(</span><span class="-Symbol">'weight</span><span class="o">))</span>
+</pre></div>
+
+<ol>
+<li>Load some data for the problem:</li>
+</ol><div class="highlight"><pre>  <span class="k">val</span> <span class="n">train</span> <span class="k">=</span> <span class="n">pbl</span> <span class="n">withInstances</span> <span class="o">(</span>
+    <span class="nc">Instance</span><span class="o">(</span>
+      <span class="-Symbol">'size</span> <span class="o">-&gt;</span> <span class="mf">10.0</span><span class="o">,</span>
+      <span class="-Symbol">'weight</span> <span class="o">-&gt;</span> <span class="mi">10</span><span class="o">,</span>
+      <span class="-Symbol">'color</span> <span class="o">-&gt;</span> <span class="-Symbol">'blue</span><span class="o">),</span>
+    <span class="nc">Instance</span><span class="o">(</span>
+      <span class="-Symbol">'size</span> <span class="o">-&gt;</span> <span class="mf">11.0</span><span class="o">,</span>
+      <span class="-Symbol">'weight</span> <span class="o">-&gt;</span> <span class="mi">10</span><span class="o">,</span>
+      <span class="-Symbol">'color</span> <span class="o">-&gt;</span> <span class="-Symbol">'red</span><span class="o">),</span>
+    <span class="nc">Instance</span><span class="o">(</span>
+       <span class="-Symbol">'size</span> <span class="o">-&gt;</span> <span class="mf">11.0</span><span class="o">,</span>
+       <span class="-Symbol">'weight</span> <span class="o">-&gt;</span> <span class="mi">15</span><span class="o">,</span>
+       <span class="-Symbol">'color</span> <span class="o">-&gt;</span> <span class="-Symbol">'red</span><span class="o">),</span>
+    <span class="nc">Instance</span><span class="o">(</span>
+       <span class="-Symbol">'size</span> <span class="o">-&gt;</span> <span class="mf">11.0</span><span class="o">,</span>
+       <span class="-Symbol">'weight</span> <span class="o">-&gt;</span> <span class="mi">20</span><span class="o">,</span>
+       <span class="-Symbol">'color</span> <span class="o">-&gt;</span> <span class="-Symbol">'red</span><span class="o">),</span>
+    <span class="nc">Instance</span><span class="o">(</span>
+       <span class="-Symbol">'size</span> <span class="o">-&gt;</span> <span class="mf">10.0</span><span class="o">,</span>
+        <span class="-Symbol">'weight</span> <span class="o">-&gt;</span> <span class="mi">50</span><span class="o">,</span>
+        <span class="-Symbol">'color</span> <span class="o">-&gt;</span> <span class="-Symbol">'green</span><span class="o">),</span>
+     <span class="nc">Instance</span><span class="o">(</span>
+        <span class="-Symbol">'size</span> <span class="o">-&gt;</span> <span class="mf">10.0</span><span class="o">,</span>
+        <span class="-Symbol">'weight</span> <span class="o">-&gt;</span> <span class="mi">55</span><span class="o">,</span>
+        <span class="-Symbol">'color</span> <span class="o">-&gt;</span> <span class="-Symbol">'green</span><span class="o">))</span>
+</pre></div>
+
+<ol>
+<li>Train a Classifier</li>
+</ol><div class="highlight"><pre>  <span class="k">val</span> <span class="n">model</span> <span class="k">=</span> <span class="nc">Classifier</span><span class="o">(</span><span class="k">new</span> <span class="nc">NaiveBayes</span><span class="o">())</span> <span class="n">train</span> <span class="o">(</span><span class="n">train</span><span class="o">)</span>
+</pre></div>
+
+<ol>
+<li>Try to predict the label of a new instance (<code>model</code> is an <code>Option</code>)</li>
+</ol><div class="highlight"><pre>  <span class="k">val</span> <span class="n">pred</span> <span class="k">=</span> <span class="n">model</span> <span class="n">map</span> <span class="o">{</span> <span class="n">cl</span> <span class="k">=&gt;</span>
+    <span class="n">cl</span><span class="o">.</span><span class="n">classifyInstance</span><span class="o">(</span><span class="nc">Instance</span><span class="o">(</span><span class="-Symbol">'size</span> <span class="o">-&gt;</span> <span class="mi">10</span><span class="o">,</span>
+      <span class="-Symbol">'weight</span> <span class="o">-&gt;</span> <span class="mi">50</span><span class="o">))</span>
+  <span class="o">}</span>
+  <span class="n">println</span><span class="o">(</span><span class="n">pred</span><span class="o">)</span>
+</pre></div>
+
+<p>For more basic examples, see <code>wela.examples.MyApp</code>.</p>
+
+<h2>contribute</h2>
+
+<p>The project follows the <a href="http://nvie.com/posts/a-successful-git-branching-model/">git flow</a> organization for branching. If you want to participate, check out how it works.</p>
+
+<h2>License</h2>
+
+<p>Following WEKA's GPL licence, this project is also under the <a href="http://www.gnu.org/licenses/gpl.html">GNU General Public Licence V3</a>.</p>
+        </section>
+
+        <footer>
+          Wela is maintained by <a href="https://github.com/Mortimerp9">Mortimerp9</a><br>
+          This page was generated by <a href="http://pages.github.com">GitHub Pages</a>. Tactile theme by <a href="http://twitter.com/jasonlong">Jason Long</a>.
+        </footer>
+
+        
+      </div>
+    </div>
+  </body>
+</html>

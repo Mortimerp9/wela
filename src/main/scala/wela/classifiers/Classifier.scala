@@ -3,81 +3,74 @@ package wela.classifiers
 import weka.classifiers.{ Classifier => WekaClassifier }
 import wela.core._
 
-trait CanTrain[T] {
-  def canTrain(labelAttr: Attribute): Boolean
-}
-
 object Classifier {
-  def apply[C <: WekaClassifier](cl: => C)(implicit can: CanTrain[C]) = new Classifier(cl)
+  def apply[C <: WekaClassifier](cl: => C) = new Classifier(cl)
 }
 
-class Classifier[C <: WekaClassifier](cl: => C)(implicit can: CanTrain[C]) {
-  def train(dataset: Dataset): Option[TrainedClassifier] = {
-    def mkCl = {
+class Classifier[C <: WekaClassifier](cl: => C) {
+  def train[L <: Attribute, AS <: List[Attribute]](dataset: Dataset[L, AS])(implicit can: CanTrain[C, L, AS]): Option[TrainedClassifier[C, L, AS]] = {
+    def mkCl[L1 <: Attribute](tc: C => TrainedClassifier[C, L1, AS]): Option[TrainedClassifier[C, L, AS]] = {
       val classifierInstance = cl;
-      classifierInstance.buildClassifier(dataset.instances)
-      classifierInstance
+      if (can.canTrain(classifierInstance, dataset)) {
+        classifierInstance.buildClassifier(dataset.instances)
+        Some(tc(classifierInstance).asInstanceOf[TrainedClassifier[C, L, AS]])
+      } else None
     }
-    dataset.problem.labelAttribute.flatMap {
-      case a: NominalAttr if can.canTrain(a) => Some(NominalTrainedClassifier(mkCl, dataset))
-      case a: NumericAttr if can.canTrain(a) => Some(NumericTrainedClassifier(mkCl, dataset))
-      case _ => None
+    dataset.problem.label match {
+      case a: NominalAttr => mkCl[a.type](cl => NominalTrainedClassifier(cl, dataset.asInstanceOf[Dataset[a.type, AS]]))
+      case a: NumericAttr => mkCl[a.type](cl => NumericTrainedClassifier(cl, dataset.asInstanceOf[Dataset[a.type, AS]]))
+      case a => None
     }
   }
 }
 
-trait TrainedClassifier {
+trait TrainedClassifier[C <: WekaClassifier, +L <: Attribute, +AS <: List[Attribute]] {
   type ProbType
-  def cl: WekaClassifier
-  def dataset: Dataset
+  def cl: C
+  def dataset: Dataset[L, AS]
   def classifyInstance(inst: Instance): Option[AttributeValue] = {
-    dataset.problem.labelAttribute.flatMap { attr =>
-      val i = dataset.makeInstance(inst)
-      val idx = cl.classifyInstance(i)
-      attr match {
-        case a: NominalAttr =>
-          if (a.values.size > idx) {
-            Some(a.values(idx.toInt))
-          } else None
-        case a: NumericAttr => Some(idx)
-        case _ =>
-          None
-      }
+    val i = dataset.makeInstance(inst)
+    val idx = cl.classifyInstance(i)
+    dataset.problem.label match {
+      case a: NominalAttr =>
+        if (a.levels.size > idx) {
+          Some(a.levels(idx.toInt))
+        } else None
+      case a: NumericAttr => Some(idx)
+      case _ =>
+        None
     }
   }
 }
 
-case class NumericTrainedClassifier protected[classifiers] (override val cl: WekaClassifier, override val dataset: Dataset) extends TrainedClassifier {
+case class NumericTrainedClassifier[C <: WekaClassifier, L <: NumericAttr, AS <: List[Attribute]] protected[classifiers] (override val cl: C, override val dataset: Dataset[L, AS]) extends TrainedClassifier[C, L, AS] {
   type ProbType = Double
 
   def distributionForInstance(inst: Instance): Option[Double] = {
-    dataset.problem.labelAttribute.flatMap { attr =>
-      val i = dataset.makeInstance(inst)
-      val dist = cl.distributionForInstance(i)
-      attr match {
-        case a: NumericAttr if dist.size > 0 => Some(dist(0))
-        case _ => None
-      }
+    val i = dataset.makeInstance(inst)
+    val dist = cl.distributionForInstance(i)
+    dataset.problem.label match {
+      case a: NumericAttr if dist.size > 0 => Some(dist(0))
+      case _ => None
     }
+
   }
 }
 
-case class NominalTrainedClassifier protected[classifiers] (override val cl: WekaClassifier, override val dataset: Dataset) extends TrainedClassifier {
+case class NominalTrainedClassifier[C <: WekaClassifier, L <: NominalAttr, AS <: List[Attribute]] protected[classifiers] (override val cl: C, override val dataset: Dataset[L, AS]) extends TrainedClassifier[C, L, AS] {
   type ProbType = Seq[(Symbol, Double)]
 
   def distributionForInstance(inst: Instance): Seq[(Symbol, Double)] = {
-    dataset.problem.labelAttribute.map { attr =>
-      val i = dataset.makeInstance(inst)
-      val dist = cl.distributionForInstance(i)
-      attr match {
-        case a: NominalAttr =>
-          dist.take(a.values.size).zipWithIndex.map {
-            case (d, idx) =>
-              Symbol(a.value(idx)) -> d
-          } toSeq
-        case _ => Nil
-      }
-    } getOrElse (Nil)
+    val i = dataset.makeInstance(inst)
+    val dist = cl.distributionForInstance(i)
+    dataset.problem.label match {
+      case a: NominalAttr =>
+        dist.take(a.levels.size).zipWithIndex.map {
+          case (d, idx) =>
+            Symbol(a.value(idx)) -> d
+        } toSeq
+      case _ => Nil
+    }
   }
 }
  

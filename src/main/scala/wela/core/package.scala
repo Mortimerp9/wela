@@ -16,15 +16,18 @@ package object core {
     m.toMap
   }
 
-  type Instance = FastVector[(Symbol, AttributeValue)]
+  type Instance = Map[Symbol, AttributeValue]
   object Instance {
-    def apply(vals: (Symbol, AttributeValue)*): Instance = FastVector(vals: _*)
+    def apply(vals: (Symbol, AttributeValue)*): Instance = Map(vals: _*)
   }
 
   implicit def avToVal(av: AttributeValue): av.T = av.value
-  implicit def strToAV(string: String) = StringValue(string)
-  implicit def strToAV(string: Symbol) = StringValue(string.name)
-  implicit def dblToAV(double: Double) = DoubleValue(double)
+  implicit def strToAV(string: String) = NominalValue(Symbol(string))
+  implicit def strToAV(string: Symbol) = NominalValue(string)
+  implicit def dblToAV(double: Double) = NumericValue(double)
+  
+  implicit def conformNominal[T <: NominalAttr] = new ConformType[NominalValue, T] {}
+  implicit def conformNumeric[T <: NumericAttr] = new ConformType[NumericValue, T] {}
 
 }
 

@@ -7,8 +7,7 @@ import weka.classifiers.functions.LeastMedSq
 
 object MyApp extends App {
 
-  val pbl = Problem("test", Some('color)) withAttributes (NumericAttribute('size),
-    NominalAttribute('color, Seq('red, 'blue, 'green)),
+  val pbl = Problem("test", NominalAttribute('color, Seq('red, 'blue, 'green))) withAttributes (NumericAttribute('size),
     NumericAttribute('weight))
 
   val train = pbl withInstances (
@@ -34,7 +33,7 @@ object MyApp extends App {
               'color -> 'green),
               Instance(
                 'size -> 10.0,
-                'weight -> 50,
+                'weight -> 55,
                 'color -> 'green))
 
   val model = Classifier(new NaiveBayes()) train (train)
@@ -43,10 +42,8 @@ object MyApp extends App {
       'weight -> 50))
   }
   println(pred)
-  
-  
-  val pbl2 = Problem("test2", Some('size)) withAttributes (NumericAttribute('size),
-    NominalAttribute('color, Seq('red, 'blue, 'green)),
+
+  val pbl2 = Problem("test2", NumericAttribute('size)) withAttributes (NominalAttribute('color, Seq('red, 'blue, 'green)),
     NumericAttribute('weight))
 
   val train2 = pbl2 withInstances (

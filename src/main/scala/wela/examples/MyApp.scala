@@ -71,8 +71,21 @@ object MyApp extends App {
                 'size -> 10.0,
                 'weight -> 50,
                 'color -> 'green))
+  
+  
+  val model3 = Classifier(new LeastMedSq()) train (train2)
+  val pred3 = model3 map { cl =>
+    cl.classifyInstance(Instance('color -> 'red,
+      'weight -> 50))
+  }
+  println(pred3)
+  
+  val train3 = train2.withMapping('color, NumericAttribute('color)) { 
+    case v: NominalValue => NumericValue(v.value.name.length())
+    case _ => NumericValue(0)
+  }
 
-  val model2 = Classifier(new LeastMedSq()) train (train2)
+  val model2 = Classifier(new LeastMedSq()) train (train3)
   val pred2 = model2 map { cl =>
     cl.classifyInstance(Instance('color -> 'red,
       'weight -> 50))

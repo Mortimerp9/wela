@@ -8,17 +8,17 @@ object Classifier {
 }
 
 class Classifier[C <: WekaClassifier](cl: => C) {
-  def train[L <: Attribute, AS <: List[Attribute]](dataset: Dataset[L, AS])(implicit can: CanTrain[C, L, AS]): Option[TrainedClassifier[C, L, AS]] = {
+  def train[L <: Attribute, AS <: List[Attribute]](dataset: AbstractDataset[L, AS])(implicit can: CanTrain[C, L, AS]): Option[TrainedClassifier[C, L, AS]] = {
     def mkCl[L1 <: Attribute](tc: C => TrainedClassifier[C, L1, AS]): Option[TrainedClassifier[C, L, AS]] = {
       val classifierInstance = cl;
       if (can.canTrain(classifierInstance, dataset)) {
-        classifierInstance.buildClassifier(dataset.instances)
+        classifierInstance.buildClassifier(dataset.wekaInstances)
         Some(tc(classifierInstance).asInstanceOf[TrainedClassifier[C, L, AS]])
       } else None
     }
     dataset.problem.label match {
-      case a: NominalAttr => mkCl[a.type](cl => NominalTrainedClassifier(cl, dataset.asInstanceOf[Dataset[a.type, AS]]))
-      case a: NumericAttr => mkCl[a.type](cl => NumericTrainedClassifier(cl, dataset.asInstanceOf[Dataset[a.type, AS]]))
+      case a: NominalAttr => mkCl[a.type](cl => NominalTrainedClassifier(cl, dataset.asInstanceOf[AbstractDataset[a.type, AS]]))
+      case a: NumericAttr => mkCl[a.type](cl => NumericTrainedClassifier(cl, dataset.asInstanceOf[AbstractDataset[a.type, AS]]))
       case a => None
     }
   }
@@ -27,7 +27,7 @@ class Classifier[C <: WekaClassifier](cl: => C) {
 trait TrainedClassifier[C <: WekaClassifier, +L <: Attribute, +AS <: List[Attribute]] {
   type ProbType
   def cl: C
-  def dataset: Dataset[L, AS]
+  def dataset: AbstractDataset[L, AS]
   def classifyInstance(inst: Instance): Option[AttributeValue] = {
     val i = dataset.makeInstance(inst)
     val idx = cl.classifyInstance(i)
@@ -43,7 +43,7 @@ trait TrainedClassifier[C <: WekaClassifier, +L <: Attribute, +AS <: List[Attrib
   }
 }
 
-case class NumericTrainedClassifier[C <: WekaClassifier, L <: NumericAttr, AS <: List[Attribute]] protected[classifiers] (override val cl: C, override val dataset: Dataset[L, AS]) extends TrainedClassifier[C, L, AS] {
+case class NumericTrainedClassifier[C <: WekaClassifier, L <: NumericAttr, AS <: List[Attribute]] protected[classifiers] (override val cl: C, override val dataset: AbstractDataset[L, AS]) extends TrainedClassifier[C, L, AS] {
   type ProbType = Double
 
   def distributionForInstance(inst: Instance): Option[Double] = {
@@ -57,7 +57,7 @@ case class NumericTrainedClassifier[C <: WekaClassifier, L <: NumericAttr, AS <:
   }
 }
 
-case class NominalTrainedClassifier[C <: WekaClassifier, L <: NominalAttr, AS <: List[Attribute]] protected[classifiers] (override val cl: C, override val dataset: Dataset[L, AS]) extends TrainedClassifier[C, L, AS] {
+case class NominalTrainedClassifier[C <: WekaClassifier, L <: NominalAttr, AS <: List[Attribute]] protected[classifiers] (override val cl: C, override val dataset: AbstractDataset[L, AS]) extends TrainedClassifier[C, L, AS] {
   type ProbType = Seq[(Symbol, Double)]
 
   def distributionForInstance(inst: Instance): Seq[(Symbol, Double)] = {

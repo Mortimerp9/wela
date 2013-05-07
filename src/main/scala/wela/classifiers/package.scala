@@ -1,22 +1,22 @@
 package wela
 
-import weka.classifiers.{ Classifier => WekaClassifier }
+import weka.classifiers.{Classifier => WekaClassifier}
 import weka.classifiers.bayes.NaiveBayes
+import weka.classifiers.functions.LeastMedSq
+import weka.classifiers.trees.RandomForest
+import wela.core.AbstractDataset
 import wela.core.Attribute
 import wela.core.NominalAttr
-import weka.classifiers.trees.RandomForest
 import wela.core.NumericAttr
-import weka.classifiers.functions.LeastMedSq
-import wela.core.Dataset
 
 package object classifiers {
 
   trait CanTrain[+T <: WekaClassifier, +L <: Attribute, +AS <: List[Attribute]] {
     def canTrain(cl: WekaClassifier, att: List[Attribute]): Boolean = att.foldLeft(true)((bool, a) => bool && cl.getCapabilities().test(a.toWekaAttribute))
-    def canTrain(cl: WekaClassifier, data: Dataset[Attribute, List[Attribute]]): Boolean =
+    def canTrain(cl: WekaClassifier, data: AbstractDataset[Attribute, List[Attribute]]): Boolean =
       canTrain(cl, data.problem.label) &&
         canTrain(cl, data.problem.label :: data.problem.attrs.toList) &&
-        cl.getCapabilities().test(data.instances)
+        cl.getCapabilities().test(data.wekaInstances)
     def canTrain(cl: WekaClassifier, label: Attribute): Boolean =cl.getCapabilities().test(label)
   }
 

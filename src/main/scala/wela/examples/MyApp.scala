@@ -37,7 +37,7 @@ object MyApp extends App {
                 'color -> 'green))
 
   val model = Classifier(new NaiveBayes()) train (train)
-  val pred = model map { cl =>
+  val pred = model flatMap { cl =>
     cl.classifyInstance(Instance('size -> 10,
       'weight -> 50))
   }
@@ -74,7 +74,7 @@ object MyApp extends App {
   
   
   val model3 = Classifier(new LeastMedSq()) train (train2)
-  val pred3 = model3 map { cl =>
+  val pred3 = model3 flatMap { cl =>
     cl.classifyInstance(Instance('color -> 'red,
       'weight -> 50))
   }
@@ -86,7 +86,7 @@ object MyApp extends App {
   }
 
   val model2 = Classifier(new LeastMedSq()) train (train3)
-  val pred2 = model2 map { cl =>
+  val pred2 = model2 flatMap { cl =>
     cl.classifyInstance(Instance('color -> 'red,
       'weight -> 50))
   }

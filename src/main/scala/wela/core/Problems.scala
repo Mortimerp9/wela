@@ -17,18 +17,6 @@ class ProblemWithAttributes[+L <: Attribute, +AS <: List[Attribute]] protected[c
 
 trait AbstractDataset[+L <: Attribute, +AS <: List[Attribute]] {
 
-  /**
-   * just to help set values of instances
-   */
-  protected implicit class RichInstance(ist: WekaInstance) {
-    def setValue[AV <: AttributeValue, A <: Attribute](attr: A, value: AV)(implicit compatible: ConformType[AV, A]) {
-      value match {
-        case NumericValue(dbl) => ist.setValue(attr.toWekaAttribute, dbl)
-        case NominalValue(str) => ist.setValue(attr.toWekaAttribute, str.name)
-      }
-    }
-  }
-
   protected def instances: Seq[Instance]
   protected[wela] def problem: ProblemWithAttributes[L, AS]
   protected def wekaInstanceCol: WekaInstances
@@ -36,8 +24,8 @@ trait AbstractDataset[+L <: Attribute, +AS <: List[Attribute]] {
   /**
    * create an instance within this problem definition. This doesn't add anything to the set of wrapped instances
    */
-  protected[wela] def makeInstance(inst: Instance): WekaInstance 
-  
+  protected[wela] def makeInstance(inst: Instance): WekaInstance
+
   protected def makeInstance(inst: Instance, attrDefinitions: Map[Symbol, Attribute]): WekaInstance = {
     val wInstance = new WekaInstance(attrDefinitions.size)
     inst.foreach {
@@ -45,17 +33,19 @@ trait AbstractDataset[+L <: Attribute, +AS <: List[Attribute]] {
         val k = attrDefinitions.get(attr)
         if (k.isDefined) {
           val attrDef = k.get
-          require(ConformType(value, attrDef), s"instance not conform to the definitions of the dataset ${problem.name}; ${value}; ${attrDef}")
-          //we do not know if the value is compatible with the attribute definition, so we need to do a runtime check 
-          val conformAll = new ConformType[AttributeValue, Attribute] {}
-          wInstance.setValue(k.get, value)(conformAll)
+          (attrDef, value) match {
+            case (a: NumericAttribute, v: NumericValue) => wInstance.setValue(a.toWekaAttribute, v)
+            case (a: StringAttribute, v: StringValue) => wInstance.setValue(a.toWekaAttribute, v)
+            case (a: NominalAttribute, v: SymbolValue) => wInstance.setValue(a.toWekaAttribute, v.name)
+            case _ => throw new IllegalArgumentException("instance doesn't correspond to attribute definition")
+          }
         }
     }
     wInstance
   }
-  
-  def withMapping[VT <: AttributeValue, AD <: Attribute](attr: Symbol, a: AD)(f: AttributeValue => VT)(implicit conform: ConformType[VT, AD]): MappedDataset[L, List[Attribute]]
-  
+
+  def withMapping[AD <: Attribute](attr: Symbol, newAttr: AD)(f: AttributeValue => newAttr.ValType)(implicit comp: Compatible[AD, newAttr.ValType]): MappedDataset[L, List[Attribute]]
+
   /**
    * get the Weka Instances
    */
@@ -74,8 +64,7 @@ class Dataset[+L <: Attribute, +AS <: List[Attribute]] protected[core] (override
     in.setClass(problem.label)
     in
   }
-  
-  
+
   /**
    * create an instance within this problem definition. This doesn't add anything to the set of wrapped instances
    */
@@ -84,23 +73,21 @@ class Dataset[+L <: Attribute, +AS <: List[Attribute]] protected[core] (override
     wInstance.setDataset(wekaInstanceCol)
     wInstance
   }
-  
 
-
-  override def withMapping[VT <: AttributeValue, AD <: Attribute](attr: Symbol, a: AD)(f: AttributeValue => VT)(implicit conform: ConformType[VT, AD]): MappedDataset[L, List[Attribute]] = {
-    val mapper = new DatasetMapping(attr, a, f)(conform)
+  override def withMapping[AD <: Attribute](attr: Symbol, newAttr: AD)(f: AttributeValue => newAttr.ValType)(implicit comp: Compatible[AD, newAttr.ValType]) : MappedDataset[L, List[Attribute]] = {
+    val mapper = new DatasetMapping(attr, newAttr, f)(comp)
     new MappedDataset(problem, instances, List(mapper))
   }
 
 }
 
-private class DatasetMapping[+VT <: AttributeValue, +AD <: Attribute](val attr: Symbol, val a: AD, f: AttributeValue => VT)(implicit conform: ConformType[VT, AD]) {
+private class DatasetMapping[+AV <: AttributeValue, +AD <: Attribute](val attr: Symbol, val newAttr: AD, f: AttributeValue => AV)(implicit comp: Compatible[AD, AV]) {
 
   def mapProblem(attrDefinitions: Map[Symbol, Attribute]): Map[Symbol, Attribute] = {
     val keep = attrDefinitions.filter {
       case (k, v) => k != attr
     }
-    keep + (a.name -> a)
+    keep + (newAttr.name -> newAttr)
   }
 
   def mapInstance(instance: Instance): Instance = {
@@ -124,7 +111,7 @@ class MappedDataset[+L <: Attribute, +AS <: List[Attribute]] protected[core] (ov
         val mapClass = if (prClass.isDefined) {
           prClass
         } else if (mapper.attr == problem.label.name) {
-          Some(mapper.a)
+          Some(mapper.newAttr)
         } else {
           None
         }
@@ -147,8 +134,8 @@ class MappedDataset[+L <: Attribute, +AS <: List[Attribute]] protected[core] (ov
     wInstance
   }
 
-  override def withMapping[VT <: AttributeValue, AD <: Attribute](attr: Symbol, a: AD)(f: AttributeValue => VT)(implicit conform: ConformType[VT, AD]): MappedDataset[L, List[Attribute]] = {
-    val mapper = new DatasetMapping(attr, a, f)(conform)
+  override def withMapping[AD <: Attribute](attr: Symbol, newAttr: AD)(f: AttributeValue => newAttr.ValType)(implicit comp: Compatible[AD, newAttr.ValType]): MappedDataset[L, List[Attribute]] = {
+    val mapper = new DatasetMapping(attr, newAttr, f)(comp)
     new MappedDataset(problem, instances, mapper :: mappings)
   }
 

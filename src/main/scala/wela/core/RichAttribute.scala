@@ -20,6 +20,10 @@ sealed trait NominalAttr extends Attribute {
   def levels: Seq[ValType]
 }
 
+sealed trait StringAttr extends NominalAttr {
+  override type ValType = StringValue
+}
+
 case class StringAttribute(override val name: Symbol,
   override val levels: Seq[StringValue] = Nil,
   metadata: ProtectedProperties = new ProtectedProperties(new Properties())) extends NominalAttr {

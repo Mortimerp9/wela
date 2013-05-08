@@ -6,6 +6,30 @@ case class Problem[+L <: Attribute](name: String, label: L) {
   def withAttributes[A <: Attribute](attr: A*): ProblemWithAttributes[L, List[A]] = {
     new ProblemWithAttributes(name, attr.toList, label)
   }
+
+  def withInstances(instances: Instance*) = {
+    val attrDefinitions = instances.foldLeft(Map[Symbol, Attribute](label.name -> label)) {
+      case (attrs, inst) =>
+        inst.foldLeft(attrs) {
+          case (exAttrs, (name, value)) => 
+            attrs.get(name) match {
+              case None =>
+                val newAttr = Attribute(name, value)
+                exAttrs.updated(name, newAttr)
+              case Some(a: NominalAttr) => 
+                require(ConformType(value, a), s"attribute ${name.name} with mixed types")
+                exAttrs.updated(name, a.addLevel(value.asInstanceOf[a.ValType]))
+              case Some(a: NumericAttribute) =>
+                require(ConformType(value, a), s"attribute ${name.name} with mixed types")
+                exAttrs
+              case _ => exAttrs //TODO raise an error
+            }
+        }
+    }
+    val pbl = new ProblemWithAttributes[L, List[Attribute]](name, attrDefinitions.values.toList, label)
+    pbl withInstances(instances:_*)
+  }
+
 }
 
 class ProblemWithAttributes[+L <: Attribute, +AS <: List[Attribute]] protected[core] (val name: String, val attrs: AS, val label: L) {
@@ -24,7 +48,8 @@ trait AbstractDataset[+L <: Attribute, +AS <: List[Attribute]] {
     def setValue[AV <: AttributeValue, A <: Attribute](attr: A, value: AV)(implicit compatible: ConformType[AV, A]) {
       value match {
         case NumericValue(dbl) => ist.setValue(attr.toWekaAttribute, dbl)
-        case NominalValue(str) => ist.setValue(attr.toWekaAttribute, str.name)
+        case SymbolValue(str) => ist.setValue(attr.toWekaAttribute, str.name)
+        case StringValue(str) => ist.setValue(attr.toWekaAttribute, str)
       }
     }
   }
@@ -36,8 +61,8 @@ trait AbstractDataset[+L <: Attribute, +AS <: List[Attribute]] {
   /**
    * create an instance within this problem definition. This doesn't add anything to the set of wrapped instances
    */
-  protected[wela] def makeInstance(inst: Instance): WekaInstance 
-  
+  protected[wela] def makeInstance(inst: Instance): WekaInstance
+
   protected def makeInstance(inst: Instance, attrDefinitions: Map[Symbol, Attribute]): WekaInstance = {
     val wInstance = new WekaInstance(attrDefinitions.size)
     inst.foreach {
@@ -53,9 +78,9 @@ trait AbstractDataset[+L <: Attribute, +AS <: List[Attribute]] {
     }
     wInstance
   }
-  
+
   def withMapping[VT <: AttributeValue, AD <: Attribute](attr: Symbol, a: AD)(f: AttributeValue => VT)(implicit conform: ConformType[VT, AD]): MappedDataset[L, List[Attribute]]
-  
+
   /**
    * get the Weka Instances
    */
@@ -74,8 +99,7 @@ class Dataset[+L <: Attribute, +AS <: List[Attribute]] protected[core] (override
     in.setClass(problem.label)
     in
   }
-  
-  
+
   /**
    * create an instance within this problem definition. This doesn't add anything to the set of wrapped instances
    */
@@ -84,8 +108,6 @@ class Dataset[+L <: Attribute, +AS <: List[Attribute]] protected[core] (override
     wInstance.setDataset(wekaInstanceCol)
     wInstance
   }
-  
-
 
   override def withMapping[VT <: AttributeValue, AD <: Attribute](attr: Symbol, a: AD)(f: AttributeValue => VT)(implicit conform: ConformType[VT, AD]): MappedDataset[L, List[Attribute]] = {
     val mapper = new DatasetMapping(attr, a, f)(conform)

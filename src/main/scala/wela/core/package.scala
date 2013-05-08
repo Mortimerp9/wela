@@ -22,11 +22,12 @@ package object core {
   }
 
   implicit def avToVal(av: AttributeValue): av.T = av.value
-  implicit def strToAV(string: String) = NominalValue(Symbol(string))
-  implicit def strToAV(string: Symbol) = NominalValue(string)
+  implicit def strToAV(string: String) = StringValue(string)
+  implicit def strToAV(string: Symbol) = SymbolValue(string)
   implicit def dblToAV(double: Double) = NumericValue(double)
-  
-  implicit def conformNominal[T <: NominalAttr] = new ConformType[NominalValue, T] {}
+
+  implicit def conformNominal = new ConformType[SymbolValue, NominalAttribute] {}
+  implicit def conformString = new ConformType[StringValue, StringAttribute] {}
   implicit def conformNumeric[T <: NumericAttr] = new ConformType[NumericValue, T] {}
 
 }

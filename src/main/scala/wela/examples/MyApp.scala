@@ -7,10 +7,7 @@ import weka.classifiers.functions.LeastMedSq
 
 object MyApp extends App {
 
-  val pbl = Problem("test", NominalAttribute('color, Seq('red, 'blue, 'green))) withAttributes (NumericAttribute('size),
-    NumericAttribute('weight))
-
-  val train = pbl withInstances (
+  val train = Problem("test", NominalAttribute('color, Seq('red, 'blue, 'green))) withInstances (
     Instance(
       'size -> 10.0,
       'weight -> 10,
@@ -71,17 +68,16 @@ object MyApp extends App {
                 'size -> 10.0,
                 'weight -> 50,
                 'color -> 'green))
-  
-  
+
   val model3 = Classifier(new LeastMedSq()) train (train2)
   val pred3 = model3 flatMap { cl =>
     cl.classifyInstance(Instance('color -> 'red,
       'weight -> 50))
   }
   println(pred3)
-  
-  val train3 = train2.withMapping('color, NumericAttribute('color)) { 
-    case v: NominalValue => NumericValue(v.value.name.length())
+
+  val train3 = train2.withMapping('color, NumericAttribute('color)) {
+    case v: SymbolValue => NumericValue(v.value.name.length())
     case _ => NumericValue(0)
   }
 

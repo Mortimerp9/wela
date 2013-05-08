@@ -7,7 +7,7 @@ import weka.classifiers.trees.RandomForest
 import wela.core.AbstractDataset
 import wela.core.Attribute
 import wela.core.NominalAttr
-import wela.core.NumericAttr
+import wela.core.NumericAttribute
 
 package object classifiers {
 
@@ -23,8 +23,8 @@ package object classifiers {
   trait CanTrainBayes[T <: NominalAttr, AS <: List[Attribute]] extends CanTrain[NaiveBayes, T, AS]
   implicit def canTrainBayes[T <: NominalAttr, AS <: List[Attribute]] = new CanTrainBayes[T, AS] {}
 
-  trait CanTrainRF[T <: NominalAttr, AS <: List[NumericAttr]] extends CanTrain[RandomForest, T, AS]
-  implicit def canTrainRF[T <: NominalAttr, AS <: List[NumericAttr]] = new CanTrainRF[T, AS] {}
+  trait CanTrainRF[T <: NominalAttr, AS <: List[NumericAttribute]] extends CanTrain[RandomForest, T, AS]
+  implicit def canTrainRF[T <: NominalAttr, AS <: List[NumericAttribute]] = new CanTrainRF[T, AS] {}
 
   trait CanTrainLSMSQ[T <: Attribute, AS <: List[Attribute]] extends CanTrain[LeastMedSq, T, AS]
   implicit def canTrainLeastMedSq[T <: Attribute, AS <: List[Attribute]] = new CanTrainLSMSQ[T, AS] {}

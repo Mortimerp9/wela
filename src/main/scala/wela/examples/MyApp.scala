@@ -45,7 +45,8 @@ object MyApp extends App {
 
   val pbl2 = Problem("test2", NumericAttribute('size)) withAttributes (NominalAttribute('color, Seq('red, 'blue, 'green)),
     NumericAttribute('weight))
-
+    
+    
   val train2 = pbl2 withInstances (
     Instance(
       'size -> 10.0,
@@ -78,10 +79,10 @@ object MyApp extends App {
       'weight -> 50))
   }
   println(pred3)
-
-  val train3 = train2.withMapping('color, NumericAttribute('color)) {
-    case v: NominalValue => NumericValue(v.value.name.length())
-    case _ => NumericValue(0)
+  
+  val train3 = train2.withMapping('color, NumericAttribute('color)) { 
+    case v: SymbolValue => v.name.length()
+    case _ => 0
   }
 
   val model2 = Classifier(new LeastMedSq()) train (train3)
@@ -103,9 +104,9 @@ object MyApp extends App {
     Instance('text -> "liers don't say truth", 'truth -> 'true),
     Instance('text -> "what's true is true", 'truth -> 'true)).withMapping('text, Seq(NumericAttribute('lieCnt), NumericAttribute('truthCnt))) {
     case inst: StringValue => 
-      val tokens = inst.value.split(" ")
-      Seq('lieCnt -> NumericValue(tokens.count(_.equals("lie"))),
-        'truthCnt -> NumericValue(tokens.count(_.equals("true"))))
+      val tokens = inst.split(" ")
+      Seq('lieCnt -> tokens.count(_.equals("lie")),
+        'truthCnt -> tokens.count(_.equals("true")))
     case _ => Nil
   }
 

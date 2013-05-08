@@ -17,60 +17,85 @@ class Classifier[C <: WekaClassifier](cl: => C) {
       } else None
     }
     dataset.problem.label match {
-      case a: NominalAttr => mkCl[a.type](cl => NominalTrainedClassifier(cl, dataset.asInstanceOf[AbstractDataset[a.type, AS]]))
-      case a: NumericAttr => mkCl[a.type](cl => NumericTrainedClassifier(cl, dataset.asInstanceOf[AbstractDataset[a.type, AS]]))
+      case a: NominalAttribute => mkCl[NominalAttribute](cl => NominalTrainedClassifier(cl, dataset.asInstanceOf[AbstractDataset[a.type, AS]]))
+      case a: StringAttribute => mkCl[StringAttribute](cl => StringTrainedClassifier(cl, dataset.asInstanceOf[AbstractDataset[a.type, AS]]))
+      case a: NumericAttribute => mkCl[NumericAttribute](cl => NumericTrainedClassifier(cl, dataset.asInstanceOf[AbstractDataset[a.type, AS]]))
       case a => None
     }
   }
 }
 
 trait TrainedClassifier[C <: WekaClassifier, +L <: Attribute, +AS <: List[Attribute]] {
-  type ProbType
+  type LV
+  type DistType
   def cl: C
   def dataset: AbstractDataset[L, AS]
-  def classifyInstance(inst: Instance): Option[AttributeValue] = {
+  def distributionForInstance(inst: Instance): DistType
+  def classifyInstance(inst: Instance): Option[LV]
+}
+
+case class NumericTrainedClassifier[C <: WekaClassifier, AS <: List[Attribute]] protected[classifiers] (override val cl: C, override val dataset: AbstractDataset[NumericAttribute, AS]) extends TrainedClassifier[C, NumericAttribute, AS] {
+  override type DistType = Double
+  override type LV = NumericValue
+
+  override def classifyInstance(inst: Instance): Option[NumericValue] = {
     val i = dataset.makeInstance(inst)
     val idx = cl.classifyInstance(i)
-    dataset.problem.label match {
-      case a: NominalAttr =>
-        if (a.levels.size > idx) {
-          Some(a.levels(idx.toInt))
-        } else None
-      case a: NumericAttr => Some(idx)
-      case _ =>
-        None
-    }
+    Some(idx)
+  }
+
+  override def distributionForInstance(inst: Instance): Double = {
+    val i = dataset.makeInstance(inst)
+    val dist = cl.distributionForInstance(i)
+    dist(0)
   }
 }
 
-case class NumericTrainedClassifier[C <: WekaClassifier, L <: NumericAttr, AS <: List[Attribute]] protected[classifiers] (override val cl: C, override val dataset: AbstractDataset[L, AS]) extends TrainedClassifier[C, L, AS] {
-  type ProbType = Double
+case class StringTrainedClassifier[C <: WekaClassifier, AS <: List[Attribute]] protected[classifiers] (override val cl: C, override val dataset: AbstractDataset[StringAttribute, AS]) extends TrainedClassifier[C, StringAttribute, AS] {
+  override type LV = StringValue
+  override type DistType = Seq[(StringValue, Double)]
 
-  def distributionForInstance(inst: Instance): Option[Double] = {
+  override def classifyInstance(inst: Instance): Option[StringValue] = {
+    val i = dataset.makeInstance(inst)
+    val idx = cl.classifyInstance(i)
+    val levels = dataset.problem.label.levels
+    if (levels.size > idx) {
+      Some(levels(idx toInt))
+    } else None
+  }
+
+  override def distributionForInstance(inst: Instance): Seq[(StringValue, Double)] = {
     val i = dataset.makeInstance(inst)
     val dist = cl.distributionForInstance(i)
-    dataset.problem.label match {
-      case a: NumericAttr if dist.size > 0 => Some(dist(0))
-      case _ => None
-    }
-
+    val levels = dataset.problem.label.levels
+    dist.take(levels.size).zipWithIndex.map {
+      case (d, idx) =>
+        levels(idx) -> d
+    } toSeq
   }
 }
 
-case class NominalTrainedClassifier[C <: WekaClassifier, L <: NominalAttr, AS <: List[Attribute]] protected[classifiers] (override val cl: C, override val dataset: AbstractDataset[L, AS]) extends TrainedClassifier[C, L, AS] {
-  type ProbType = Seq[(Symbol, Double)]
+case class NominalTrainedClassifier[C <: WekaClassifier, AS <: List[Attribute]] protected[classifiers] (override val cl: C, override val dataset: AbstractDataset[NominalAttribute, AS]) extends TrainedClassifier[C, NominalAttribute, AS] {
+  override type LV = SymbolValue
+  override type DistType = Seq[(SymbolValue, Double)]
 
-  def distributionForInstance(inst: Instance): Seq[(Symbol, Double)] = {
+  override def classifyInstance(inst: Instance): Option[SymbolValue] = {
+    val i = dataset.makeInstance(inst)
+    val idx = cl.classifyInstance(i)
+    val levels = dataset.problem.label.levels
+    if (levels.size > idx) {
+      Some(levels(idx toInt))
+    } else None
+  }
+
+  override def distributionForInstance(inst: Instance): Seq[(SymbolValue, Double)] = {
     val i = dataset.makeInstance(inst)
     val dist = cl.distributionForInstance(i)
-    dataset.problem.label match {
-      case a: NominalAttr =>
-        dist.take(a.levels.size).zipWithIndex.map {
-          case (d, idx) =>
-            Symbol(a.value(idx)) -> d
-        } toSeq
-      case _ => Nil
-    }
+    val levels = dataset.problem.label.levels
+    dist.take(levels.size).zipWithIndex.map {
+      case (d, idx) =>
+        levels(idx) -> d
+    } toSeq
   }
 }
  

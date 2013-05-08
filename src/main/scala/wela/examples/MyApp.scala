@@ -71,16 +71,15 @@ object MyApp extends App {
                 'size -> 10.0,
                 'weight -> 50,
                 'color -> 'green))
-  
-  
+
   val model3 = Classifier(new LeastMedSq()) train (train2)
   val pred3 = model3 flatMap { cl =>
     cl.classifyInstance(Instance('color -> 'red,
       'weight -> 50))
   }
   println(pred3)
-  
-  val train3 = train2.withMapping('color, NumericAttribute('color)) { 
+
+  val train3 = train2.withMapping('color, NumericAttribute('color)) {
     case v: NominalValue => NumericValue(v.value.name.length())
     case _ => NumericValue(0)
   }
@@ -91,4 +90,23 @@ object MyApp extends App {
       'weight -> 50))
   }
   println(pred2)
+
+  val pbl3 = Problem("test processing", NominalAttribute('truth, Seq('true, 'false))) withAttributes (StringAttribute('text))
+
+  val train4 = pbl3.withInstances(
+    Instance('text -> "liers say lies", 'truth -> 'false),
+    Instance('text -> "what's false is a lie", 'truth -> 'false),
+    Instance('text -> "I am a lier", 'truth -> 'false),
+    Instance('text -> "this is a lie", 'truth -> 'false),
+    Instance('text -> "this is true", 'truth -> 'true),
+    Instance('text -> "true is good", 'truth -> 'true),
+    Instance('text -> "liers don't say truth", 'truth -> 'true),
+    Instance('text -> "what's true is true", 'truth -> 'true)).withMapping('text, Seq(NumericAttribute('lieCnt), NumericAttribute('truthCnt))) {
+    case inst: StringValue => 
+      val tokens = inst.value.split(" ")
+      Seq('lieCnt -> NumericValue(tokens.count(_.equals("lie"))),
+        'truthCnt -> NumericValue(tokens.count(_.equals("true"))))
+    case _ => Nil
+  }
+
 }

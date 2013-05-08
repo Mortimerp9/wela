@@ -23,17 +23,23 @@ case class IndexedAttribute(override val name: Symbol, index: Int) extends Numer
 }
 
 sealed trait NominalAttr extends Attribute {
-  def levels: Seq[Symbol]
+  type LevelType
+  def levels: Seq[LevelType]
   override type ValType = NominalValue
 }
 
-case class StringAttribute(override val name: Symbol,
-  override val levels: Seq[Symbol] = Nil,
-  metadata: ProtectedProperties = new ProtectedProperties(new Properties())) extends NominalAttr {
-  override lazy val toWekaAttribute = new WekaAttribute(name.name, levels.map(_.name).to[FastVector], metadata)
+sealed trait StringAttr extends NominalAttr {
+  override type LevelType = String
+  override type ValType = StringValue
 }
-case class IndexedStringAttribute(override val name: Symbol, index: Int, override val levels: Seq[Symbol] = Nil) extends NominalAttr {
-  override lazy val toWekaAttribute = new WekaAttribute(name.name, levels.map(_.name).to[FastVector], index)
+
+case class StringAttribute(override val name: Symbol,
+  override val levels: Seq[String] = Nil,
+  metadata: ProtectedProperties = new ProtectedProperties(new Properties())) extends StringAttr {
+  override lazy val toWekaAttribute = new WekaAttribute(name.name, levels.to[FastVector], metadata)
+}
+case class IndexedStringAttribute(override val name: Symbol, index: Int, override val levels: Seq[Symbol] = Nil) extends StringAttr {
+  override lazy val toWekaAttribute = new WekaAttribute(name.name, levels.to[FastVector], index)
 }
 
 case class NominalAttribute(override val name: Symbol,
@@ -47,7 +53,7 @@ case class IndexedNominalAttribute(override val name: Symbol, index: Int, overri
 
 sealed trait DateAttr extends Attribute {
   def dateFormat: String
-  override type ValType = NominalValue
+  override type ValType = StringValue
 }
 
 case class DateAttribute(override val name: Symbol, override val dateFormat: String,
@@ -64,6 +70,9 @@ sealed trait AttributeValue{
 }
 case class NominalValue(override val value: Symbol) extends AttributeValue {
   override type T = Symbol
+}
+case class StringValue(override val value: String) extends AttributeValue {
+  override type T = String
 }
 case class NumericValue(override val value: Double) extends AttributeValue {
   override type T = Double

@@ -4,6 +4,8 @@ import wela.core._
 import wela.classifiers._
 import weka.classifiers.bayes.NaiveBayes
 import weka.classifiers.functions.LeastMedSq
+import weka.classifiers.trees.RandomForest
+import weka.classifiers.{ Classifier => WekaClassifier }
 
 object MyApp extends App {
 
@@ -45,8 +47,7 @@ object MyApp extends App {
 
   val pbl2 = Problem("test2", NumericAttribute('size)) withAttributes (NominalAttribute('color, Seq('red, 'blue, 'green)),
     NumericAttribute('weight))
-    
-    
+
   val train2 = pbl2 withInstances (
     Instance(
       'size -> 10.0,
@@ -79,8 +80,8 @@ object MyApp extends App {
       'weight -> 50))
   }
   println(pred3)
-  
-  val train3 = train2.withMapping('color, NumericAttribute('color)) { 
+
+  val train3 = train2.withMapping('color, NumericAttribute('color)) {
     case v: SymbolValue => v.name.length()
     case _ => 0
   }
@@ -92,22 +93,54 @@ object MyApp extends App {
   }
   println(pred2)
 
-  val pbl3 = Problem("test processing", NominalAttribute('truth, Seq('true, 'false))) withAttributes (StringAttribute('text))
+  //////////////////////////////////////////////  
 
-  val train4 = pbl3.withInstances(
-    Instance('text -> "liers say lies", 'truth -> 'false),
+  val txtInstances = Seq(Instance('text -> "liers say lies", 'truth -> 'false),
     Instance('text -> "what's false is a lie", 'truth -> 'false),
     Instance('text -> "I am a lier", 'truth -> 'false),
     Instance('text -> "this is a lie", 'truth -> 'false),
     Instance('text -> "this is true", 'truth -> 'true),
     Instance('text -> "true is good", 'truth -> 'true),
     Instance('text -> "liers don't say truth", 'truth -> 'true),
-    Instance('text -> "what's true is true", 'truth -> 'true)).withMapping('text, Seq(NumericAttribute('lieCnt), NumericAttribute('truthCnt))) {
-    case inst: StringValue => 
+    Instance('text -> "what's true is true", 'truth -> 'true))
+
+  val pbl3 = Problem("test processing", NominalAttribute('truth, Seq('true, 'false))) withAttributes (StringAttribute('text)) withInstances (txtInstances: _*)
+
+  val train4 = pbl3.withFlatMapping('text, Seq(NumericAttribute('lieCnt), NumericAttribute('truthCnt))) {
+    case inst: StringValue =>
       val tokens = inst.split(" ")
       Seq('lieCnt -> tokens.count(_.equals("lie")),
         'truthCnt -> tokens.count(_.equals("true")))
     case _ => Nil
   }
 
+  val model4 = Classifier(new RandomForest()) train (train4)
+  val pred4 = model4 flatMap { cl =>
+    cl.classifyInstance(Instance('text -> "true truth true"))
+  }
+  println(pred4)
+  val pred5 = model4 flatMap { cl =>
+    cl.classifyInstance(Instance('text -> "lie lie"))
+  }
+  println(pred5)
+
+  ////////////////////////////
+
+  val train5 = pbl3.explodeAttributes('text, "bow") {
+    case inst: StringValue =>
+      inst.split(" ").toSeq
+    case _ => Nil
+  }
+  
+  
+  val model5 = Classifier(new NaiveBayes()) train (train5)
+  val pred6 = model5 flatMap { cl =>
+    cl.classifyInstance(Instance('text -> "true truth true"))
+  }
+  println(pred6)
+  val pred7 = model5 flatMap { cl =>
+    cl.classifyInstance(Instance('text -> "lie lie"))
+  }
+  println(pred7)
+  
 }

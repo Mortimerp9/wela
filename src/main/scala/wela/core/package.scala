@@ -25,8 +25,11 @@ package object core {
   }
 
   implicit def strToAV(string: String): StringValue = string.asInstanceOf[StringValue] 
-  implicit def strToAV(string: Symbol): SymbolValue = string.asInstanceOf[SymbolValue]
+  implicit def strToAV(string: Seq[String]): Seq[StringValue] = string.map(_.asInstanceOf[StringValue]) 
+  implicit def symbToAV(string: Symbol): SymbolValue = string.asInstanceOf[SymbolValue]
+  implicit def symbToAV(string: Seq[Symbol]): Seq[SymbolValue] = string.map(_.asInstanceOf[SymbolValue]) 
   implicit def dblToAV(double: Double): NumericValue = double.asInstanceOf[NumericValue]
+  implicit def dblToAV(double: Seq[Double]): Seq[NumericValue] = double.map(_.asInstanceOf[NumericValue]) 
 
   trait AttributeValueTag
   type AttributeValue = Tagged[AttributeValueTag]

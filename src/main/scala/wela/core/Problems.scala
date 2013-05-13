@@ -133,7 +133,10 @@ private class DatasetDynMapper(override val attr: Symbol, val newAttrPrefix: Str
       throw new IllegalStateException("you can only get the new attributes after mapping on all the instances")
       attrDefinitions
     } else {
-      newAttributes.toMap
+      val keep = attrDefinitions.filter {
+        case (k, v) => k != attr
+      }
+      keep ++ newAttributes.toMap
     }
   }
 
@@ -221,8 +224,6 @@ class MappedDataset[+L <: Attribute, +AS <: List[Attribute]] protected[core] (ov
       (mapAttr, mapInst, mapClass)
   }
 
-  
-  
   override protected val wekaInstanceCol: WekaInstances = {
     val attrs: FastVector[WekaAttribute] = mappedAttributes.values.map(_.toWekaAttribute).to[FastVector]
     val in = new WekaInstances(problem.name, attrs, mappedInstances.size)

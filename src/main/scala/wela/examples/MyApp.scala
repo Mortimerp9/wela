@@ -6,8 +6,11 @@ import weka.classifiers.bayes.NaiveBayes
 import weka.classifiers.functions.LeastMedSq
 import weka.classifiers.trees.RandomForest
 import weka.classifiers.{ Classifier => WekaClassifier }
+import scalaz._
+import Scalaz._
 
 object MyApp extends App {
+
 
   val pbl = Problem("test", NominalAttribute('color, Seq('red, 'blue, 'green))) withAttributes (NumericAttribute('size),
     NumericAttribute('weight))
@@ -128,12 +131,14 @@ object MyApp extends App {
 
   val train5 = pbl3.explodeAttributes('text, "bow") {
     case inst: StringValue =>
-      inst.split(" ").toSeq
+      inst.split(" ").toSeq.map(_.toLowerCase.replaceAll("\\W", "_"))
     case _ => Nil
   }
   
+  println(train5.mappedInstances)
   
-  val model5 = Classifier(new NaiveBayes()) train (train5)
+  
+  val model5 = Classifier(new RandomForest()) train (train5)
   val pred6 = model5 flatMap { cl =>
     cl.classifyInstance(Instance('text -> "true truth true"))
   }

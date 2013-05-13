@@ -8,7 +8,8 @@ scalaVersion := "2.10.0"
 
 libraryDependencies ++= Seq(
   "org.specs2" %% "specs2" % "1.13" % "test",
-  "nz.ac.waikato.cms.weka" % "weka-stable" % "3.6.9"
+  "nz.ac.waikato.cms.weka" % "weka-stable" % "3.6.9",
+"org.scalaz" %% "scalaz-core" % "7.0.0"
 )
 
 initialCommands := "import wela._"

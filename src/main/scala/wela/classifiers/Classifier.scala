@@ -2,25 +2,27 @@ package wela.classifiers
 
 import weka.classifiers.{ Classifier => WekaClassifier }
 import wela.core._
+import scalaz._
+import Scalaz._
 
 object Classifier {
   def apply[C <: WekaClassifier](cl: => C) = new Classifier(cl)
 }
 
 class Classifier[C <: WekaClassifier](cl: => C) {
-  def train[L <: Attribute, AS <: List[Attribute]](dataset: AbstractDataset[L, AS])(implicit can: CanTrain[C, L, AS]): Option[TrainedClassifier[C, L, AS]] = {
-    def mkCl[L1 <: Attribute](tc: C => TrainedClassifier[C, L1, AS]): Option[TrainedClassifier[C, L, AS]] = {
+  def train[L <: Attribute, AS <: List[Attribute]](dataset: AbstractDataset[L, AS])(implicit can: CanTrain[C, L, AS]): ValidationNel[String, TrainedClassifier[C, L, AS]] = {
+    def mkCl[L1 <: Attribute](tc: C => TrainedClassifier[C, L1, AS]): ValidationNel[String, TrainedClassifier[C, L, AS]] = {
       val classifierInstance = cl;
-      if (can.canTrain(classifierInstance, dataset)) {
+      can.canTrain(classifierInstance, dataset).map { whatever =>
         classifierInstance.buildClassifier(dataset.wekaInstances)
-        Some(tc(classifierInstance).asInstanceOf[TrainedClassifier[C, L, AS]])
-      } else None
+        tc(classifierInstance).asInstanceOf[TrainedClassifier[C, L, AS]]
+      }
     }
     dataset.problem.label match {
       case a: NominalAttribute => mkCl[NominalAttribute](cl => NominalTrainedClassifier(cl, dataset.asInstanceOf[AbstractDataset[a.type, AS]]))
       case a: StringAttribute => mkCl[StringAttribute](cl => StringTrainedClassifier(cl, dataset.asInstanceOf[AbstractDataset[a.type, AS]]))
       case a: NumericAttribute => mkCl[NumericAttribute](cl => NumericTrainedClassifier(cl, dataset.asInstanceOf[AbstractDataset[a.type, AS]]))
-      case a => None
+      case a => s"attribute ${a} is not supported".fail.toValidationNel
     }
   }
 }
@@ -31,17 +33,17 @@ trait TrainedClassifier[C <: WekaClassifier, +L <: Attribute, +AS <: List[Attrib
   def cl: C
   def dataset: AbstractDataset[L, AS]
   def distributionForInstance(inst: Instance): DistType
-  def classifyInstance(inst: Instance): Option[LV]
+  def classifyInstance(inst: Instance): Validation[String, LV]
 }
 
 case class NumericTrainedClassifier[C <: WekaClassifier, AS <: List[Attribute]] protected[classifiers] (override val cl: C, override val dataset: AbstractDataset[NumericAttribute, AS]) extends TrainedClassifier[C, NumericAttribute, AS] {
   override type DistType = Double
   override type LV = NumericValue
 
-  override def classifyInstance(inst: Instance): Option[NumericValue] = {
+  override def classifyInstance(inst: Instance): Validation[String,NumericValue] = {
     val i = dataset.makeInstance(inst)
     val idx = cl.classifyInstance(i)
-    Some(idx)
+    dblToAV(idx).success[String]
   }
 
   override def distributionForInstance(inst: Instance): Double = {
@@ -55,13 +57,13 @@ case class StringTrainedClassifier[C <: WekaClassifier, AS <: List[Attribute]] p
   override type LV = StringValue
   override type DistType = Seq[(StringValue, Double)]
 
-  override def classifyInstance(inst: Instance): Option[StringValue] = {
+  override def classifyInstance(inst: Instance): Validation[String,StringValue] = {
     val i = dataset.makeInstance(inst)
     val idx = cl.classifyInstance(i)
     val levels = dataset.problem.label.levels
     if (levels.size > idx) {
-      Some(levels(idx toInt))
-    } else None
+      levels(idx toInt).success[String]
+    } else s"erroneous prediction ${idx}".fail[StringValue]
   }
 
   override def distributionForInstance(inst: Instance): Seq[(StringValue, Double)] = {
@@ -79,13 +81,13 @@ case class NominalTrainedClassifier[C <: WekaClassifier, AS <: List[Attribute]] 
   override type LV = SymbolValue
   override type DistType = Seq[(SymbolValue, Double)]
 
-  override def classifyInstance(inst: Instance): Option[SymbolValue] = {
+  override def classifyInstance(inst: Instance): Validation[String, SymbolValue] = {
     val i = dataset.makeInstance(inst)
     val idx = cl.classifyInstance(i)
     val levels = dataset.problem.label.levels
     if (levels.size > idx) {
-      Some(levels(idx toInt))
-    } else None
+      levels(idx toInt).success[String]
+    } else s"erroneous prediction ${idx}".fail[SymbolValue]
   }
 
   override def distributionForInstance(inst: Instance): Seq[(SymbolValue, Double)] = {

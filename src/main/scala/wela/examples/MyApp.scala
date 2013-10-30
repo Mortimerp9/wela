@@ -109,7 +109,7 @@ object MyApp extends App {
 
   val pbl3 = Problem("test processing", NominalAttribute('truth, Seq('true, 'false))) withAttributes (StringAttribute('text)) withInstances (txtInstances: _*)
 
-  val train4 = pbl3.withFlatMapping('text, Seq(NumericAttribute('lieCnt), NumericAttribute('truthCnt))) {
+  /*val train4 = pbl3.withFlatMapping('text, Seq(NumericAttribute('lieCnt), NumericAttribute('truthCnt))) {
     case inst: StringValue =>
       val tokens = inst.split(" ")
       Seq('lieCnt -> tokens.count(_.equals("lie")),
@@ -146,6 +146,6 @@ object MyApp extends App {
   val pred7 = model5 flatMap { cl =>
     cl.classifyInstance(Instance('text -> "lie lie"))
   }
-  println(pred7)
+  println(pred7)*/
   
 }

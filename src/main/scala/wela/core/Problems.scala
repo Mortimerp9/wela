@@ -1,6 +1,6 @@
 package wela.core
 
-import weka.core.{ Attribute => WekaAttribute, Instance => WekaInstance, Instances => WekaInstances }
+import weka.core.{Attribute => WekaAttribute, Instance => WekaInstance, Instances => WekaInstances}
 import scala.collection.mutable.HashMap
 
 case class Problem[+L <: Attribute](name: String, label: L) {
@@ -9,17 +9,76 @@ case class Problem[+L <: Attribute](name: String, label: L) {
   }
 }
 
-class ProblemWithAttributes[+L <: Attribute, +AS <: List[Attribute]] protected[core] (val name: String, val attrs: AS, val label: L) {
+trait AbstractProblemWithAttributes[+L <: Attribute, +AS <: List[Attribute]] {
+  def name: String
+
+  def attrs: AS
+
+  def label: L
+
   val attrDefinitions = (label :: attrs).map(a => a.name -> a).toMap
-  def withInstances(inst: Instance*): AbstractDataset[L, AS] = {
+
+  def withInstances(inst: Instance*): AbstractDataset[L, AS]
+
+  def withMapping[AD <: Attribute](attr: Symbol, newAttr: AD)(f: AttributeValue => newAttr.ValType)(implicit comp: Compatible[AD, newAttr.ValType]): MappedProblemWithAttributes[L, AS]
+
+  def withFlatMapping[AD <: Attribute](attr: Symbol, newAttributes: Seq[AD], newLabel: Option[Symbol] = None)(f: AttributeValue => Seq[(Symbol, AttributeValue)]): MappedProblemWithAttributes[L, AS]
+
+  def explodeAttributes(attr: Symbol, newAttrPrefix: String)(f: AttributeValue => Seq[String]): MappedProblemWithAttributes[L, AS]
+}
+
+class ProblemWithAttributes[+L <: Attribute, +AS <: List[Attribute]] protected[core](override val name: String, override val attrs: AS, override val label: L) extends AbstractProblemWithAttributes[L, AS] {
+  override def withInstances(inst: Instance*): Dataset[L, AS] = {
     new Dataset(this, inst)
   }
+
+  override def withMapping[AD <: Attribute](attr: Symbol, newAttr: AD)(f: AttributeValue => newAttr.ValType)(implicit comp: Compatible[AD, newAttr.ValType]): MappedProblemWithAttributes[L, AS] = {
+    val mapper = new DatasetMapping(attr, newAttr, f)(comp)
+    new MappedProblemWithAttributes[L,AS](name, attrs, label, List(mapper))
+  }
+
+  override def withFlatMapping[AD <: Attribute](attr: Symbol, newAttributes: Seq[AD], newLabel: Option[Symbol] = None)(f: AttributeValue => Seq[(Symbol, AttributeValue)]): MappedProblemWithAttributes[L, AS] = {
+    if (!newLabel.isDefined) require(attr != label.name, "you can't replace the training label/class unless you specify a replacement")
+    val mapper = new DatasetMultiMapper(attr, newAttributes, f, newLabel)
+    new MappedProblemWithAttributes[L, AS](name, attrs, label, List(mapper))
+  }
+
+  def explodeAttributes(attr: Symbol, newAttrPrefix: String)(f: AttributeValue => Seq[String]): MappedProblemWithAttributes[L, AS] = {
+    val mapper = new DatasetDynMapper(attr, newAttrPrefix, f)
+    new MappedProblemWithAttributes[L, AS](name, attrs, label, List(mapper))
+  }
+}
+
+class MappedProblemWithAttributes[+L <: Attribute, +AS <: List[Attribute]] protected[core](override val name: String, override val attrs: AS, override val label: L, protected[core] val mappings: List[Mapper]) extends AbstractProblemWithAttributes[L, AS] {
+  override def withInstances(inst: Instance*): MappedDataset[L, AS] = {
+    new MappedDataset(this, inst)
+  }
+
+  override def withMapping[AD <: Attribute](attr: Symbol, newAttr: AD)(f: AttributeValue => newAttr.ValType)(implicit comp: Compatible[AD, newAttr.ValType]): MappedProblemWithAttributes[L, AS] = {
+    val mapper = new DatasetMapping(attr, newAttr, f)(comp)
+    new MappedProblemWithAttributes[L,AS](name,attrs,label, mapper :: mappings)
+  }
+
+  override def withFlatMapping[AD <: Attribute](attr: Symbol, newAttributes: Seq[AD], newLabel: Option[Symbol] = None)(f: AttributeValue => Seq[(Symbol, AttributeValue)]): MappedProblemWithAttributes[L, AS] = {
+    if (!newLabel.isDefined) require(attr != label.name)
+    val mapper = new DatasetMultiMapper(attr, newAttributes, f, newLabel)
+    new MappedProblemWithAttributes[L,AS](name,attrs,label, mapper :: mappings)
+  }
+
+  override def explodeAttributes(attr: Symbol, newAttrPrefix: String)(f: AttributeValue => Seq[String]): MappedProblemWithAttributes[L, AS] = {
+    val mapper = new DatasetDynMapper(attr, newAttrPrefix, f)
+    new MappedProblemWithAttributes[L,AS](name,attrs,label, mapper :: mappings)
+  }
+
+
 }
 
 trait AbstractDataset[+L <: Attribute, +AS <: List[Attribute]] {
 
   protected def instances: Seq[Instance]
-  protected[wela] def problem: ProblemWithAttributes[L, AS]
+
+  protected[wela] def problem: AbstractProblemWithAttributes[L, AS]
+
   protected def wekaInstanceCol: WekaInstances
 
   /**
@@ -45,20 +104,18 @@ trait AbstractDataset[+L <: Attribute, +AS <: List[Attribute]] {
     wInstance
   }
 
-  def withMapping[AD <: Attribute](attr: Symbol, newAttr: AD)(f: AttributeValue => newAttr.ValType)(implicit comp: Compatible[AD, newAttr.ValType]): MappedDataset[L, List[Attribute]]
-  def withFlatMapping[AD <: Attribute](attr: Symbol, newAttributes: Seq[AD], newLabel: Option[Symbol] = None)(f: AttributeValue => Seq[(Symbol, AttributeValue)]): MappedDataset[L, List[Attribute]]
-  def explodeAttributes(attr: Symbol, newAttrPrefix: String)(f: AttributeValue => Seq[String]): MappedDataset[L, List[Attribute]]
-
   /**
    * get the Weka Instances
    */
   protected[wela] def wekaInstances: WekaInstances = {
-    instances.foreach { i => wekaInstanceCol.add(makeInstance(i)) }
+    instances.foreach {
+      i => wekaInstanceCol.add(makeInstance(i))
+    }
     wekaInstanceCol
   }
 }
 
-class Dataset[+L <: Attribute, +AS <: List[Attribute]] protected[core] (override val problem: ProblemWithAttributes[L, AS], override val instances: Seq[Instance])
+class Dataset[+L <: Attribute, +AS <: List[Attribute]] protected[core](override val problem: ProblemWithAttributes[L, AS], override val instances: Seq[Instance])
   extends AbstractDataset[L, AS] {
 
   protected val wekaInstanceCol: WekaInstances = {
@@ -77,32 +134,19 @@ class Dataset[+L <: Attribute, +AS <: List[Attribute]] protected[core] (override
     wInstance
   }
 
-  override def withMapping[AD <: Attribute](attr: Symbol, newAttr: AD)(f: AttributeValue => newAttr.ValType)(implicit comp: Compatible[AD, newAttr.ValType]): MappedDataset[L, List[Attribute]] = {
-    val mapper = new DatasetMapping(attr, newAttr, f)(comp)
-    new MappedDataset(problem, instances, List(mapper))
-  }
-
-  override def withFlatMapping[AD <: Attribute](attr: Symbol, newAttributes: Seq[AD], newLabel: Option[Symbol] = None)(f: AttributeValue => Seq[(Symbol, AttributeValue)]): MappedDataset[L, List[Attribute]] = {
-    if (!newLabel.isDefined) require(attr != problem.label.name, "you can't replace the training label/class unless you specify a replacement")
-    val mapper = new DatasetMultiMapper(attr, newAttributes, f, newLabel)
-    new MappedDataset(problem, instances, List(mapper))
-  }
-
-  def explodeAttributes(attr: Symbol, newAttrPrefix: String)(f: AttributeValue => Seq[String]): MappedDataset[L, List[Attribute]] = {
-    val mapper = new DatasetDynMapper(attr, newAttrPrefix, f)
-    new MappedDataset(problem, instances, List(mapper))
-  }
-
 }
 
 private trait Mapper {
   def attr: Symbol
+
   def mapProblem(attrDefinitions: Map[Symbol, Attribute]): Map[Symbol, Attribute]
+
   def mapInstance(instance: Instance): Instance
 }
 
 private trait MultiMapper extends Mapper {
   protected type ValType <: AttributeValue
+
   def mapValue(value: AttributeValue): Seq[(Symbol, ValType)]
 
   def mapInstance(instance: Instance): Instance = {
@@ -141,7 +185,7 @@ private class DatasetDynMapper(override val attr: Symbol, val newAttrPrefix: Str
   }
 
   override def mapValue(value: AttributeValue): Seq[(Symbol, NumericValue)] = {
-    (f(value).groupBy(x => x).map {
+    f(value).groupBy(x => x).map {
       case (name, occurence) =>
         val attrName = Symbol(newAttrPrefix + "_" + name)
         val attr = newAttributes.get(attrName)
@@ -150,7 +194,7 @@ private class DatasetDynMapper(override val attr: Symbol, val newAttrPrefix: Str
           newAttributes += attrName -> newAttr
         }
         attrName -> dblToAV(occurence.size)
-    }) toSeq
+    }.toSeq
   }
 
 }
@@ -197,10 +241,10 @@ private class DatasetMapping[+AV <: AttributeValue, +AD <: Attribute](override v
 
 }
 
-class MappedDataset[+L <: Attribute, +AS <: List[Attribute]] protected[core] (override val problem: ProblemWithAttributes[L, AS], override val instances: Seq[Instance], mappings: List[Mapper])
+class MappedDataset[+L <: Attribute, +AS <: List[Attribute]] protected[core](override val problem: MappedProblemWithAttributes[L, AS], override val instances: Seq[Instance])
   extends AbstractDataset[L, AS] {
 
-  lazy val (mappedAttributes, mappedInstances, mappedClass) = mappings.foldRight[(Map[Symbol, Attribute], Seq[Instance], Attribute)]((problem.attrDefinitions, instances, problem.label)) {
+  lazy val (mappedAttributes, mappedInstances, mappedClass) = problem.mappings.foldRight[(Map[Symbol, Attribute], Seq[Instance], Attribute)]((problem.attrDefinitions, instances, problem.label)) {
     case (mapper, (prAttr, prInstances, prClass)) =>
       val mapInst = prInstances.map(mapper.mapInstance)
       val mapAttr = mapper.mapProblem(prAttr)
@@ -232,7 +276,7 @@ class MappedDataset[+L <: Attribute, +AS <: List[Attribute]] protected[core] (ov
   }
 
   override protected[wela] def makeInstance(inst: Instance): WekaInstance = {
-    val (mappedAttr, mappedInstances) = mappings.foldLeft[(Map[Symbol, Attribute], Seq[Instance])]((problem.attrDefinitions, Seq(inst))) {
+    val (mappedAttr, mappedInstances) = problem.mappings.foldLeft[(Map[Symbol, Attribute], Seq[Instance])]((problem.attrDefinitions, Seq(inst))) {
       case ((prAttr, prInstances), mapper) =>
         val mapInst = prInstances.map(mapper.mapInstance)
         (mapper.mapProblem(prAttr), mapInst)
@@ -241,21 +285,4 @@ class MappedDataset[+L <: Attribute, +AS <: List[Attribute]] protected[core] (ov
     wInstance.setDataset(wekaInstanceCol)
     wInstance
   }
-
-  override def withMapping[AD <: Attribute](attr: Symbol, newAttr: AD)(f: AttributeValue => newAttr.ValType)(implicit comp: Compatible[AD, newAttr.ValType]): MappedDataset[L, List[Attribute]] = {
-    val mapper = new DatasetMapping(attr, newAttr, f)(comp)
-    new MappedDataset(problem, instances, mapper :: mappings)
-  }
-
-  override def withFlatMapping[AD <: Attribute](attr: Symbol, newAttributes: Seq[AD], newLabel: Option[Symbol] = None)(f: AttributeValue => Seq[(Symbol, AttributeValue)]): MappedDataset[L, List[Attribute]] = {
-    if (!newLabel.isDefined) require(attr != problem.label.name)
-    val mapper = new DatasetMultiMapper(attr, newAttributes, f, newLabel)
-    new MappedDataset(problem, instances, mapper :: mappings)
-  }
-
-  override def explodeAttributes(attr: Symbol, newAttrPrefix: String)(f: AttributeValue => Seq[String]): MappedDataset[L, List[Attribute]] = {
-    val mapper = new DatasetDynMapper(attr, newAttrPrefix, f)
-    new MappedDataset(problem, instances, mapper :: mappings)
-  }
-
 }

@@ -163,4 +163,18 @@ object MyApp extends App {
 
   //////////////////
 
+  //use weka to do the serialization
+  val fileName = "/tmp/model5.model"
+
+  model5.foreach { cls =>
+    weka.core.SerializationHelper.write(fileName, cls.cl)
+  }
+
+  val rawModel6 = weka.core.SerializationHelper.read(fileName).asInstanceOf[NaiveBayes]
+
+  val newTrain = pbl5 withInstances()
+  val rawInstance = newTrain.makeInstance(Instance('text -> "what's true is true"))
+  val idx = rawModel6.classifyInstance(rawInstance)
+  println(newTrain.problem.label.resolve(idx))
+
 }

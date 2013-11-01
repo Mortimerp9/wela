@@ -11,6 +11,7 @@ sealed trait Attribute {
   protected type This <: Attribute
   def toWekaAttribute: WekaAttribute
   def changeName(newName: Symbol): This
+  def resolve(idx: Double): Option[ValType]
 }
 
 case class NumericAttribute(override val name: Symbol,
@@ -19,10 +20,16 @@ case class NumericAttribute(override val name: Symbol,
   override lazy val toWekaAttribute = new WekaAttribute(name.name, metadata)
   override protected type This = NumericAttribute
   override def changeName(newName: Symbol) = copy(name=newName)
+  def resolve(idx: Double): Option[NumericValue] = Some(dblToAV(idx))
 }
 
 sealed trait NominalAttr extends Attribute {
   def levels: Seq[ValType]
+  def resolve(idx: Double): Option[ValType] = {
+    if (levels.size > idx) {
+      Some(levels(idx toInt))
+    } else None
+  }
 }
 
 sealed trait StringAttr extends NominalAttr {

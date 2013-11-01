@@ -100,12 +100,12 @@ class MappedDataset[+L <: Attribute, +AS <: List[Attribute]] protected[core](ove
   }
 
   override protected[wela] def makeInstance(inst: Instance): WekaInstance = {
-    val (mappedAttr, mappedInstances) = problem.mappings.foldLeft[(Map[Symbol, Attribute], Seq[Instance])]((problem.attrDefinitions, Seq(inst))) {
-      case ((prAttr, prInstances), mapper) =>
-        val mapInst = prInstances.map(mapper.mapInstance)
+    val (mappedAttr, mappedInstances) = problem.mappings.foldRight[(Map[Symbol, Attribute], Instance)]((problem.attrDefinitions,inst)) {
+      case (mapper, (prAttr, prInstances)) =>
+        val mapInst = mapper.mapInstance(prInstances)
         (mapper.mapProblem(prAttr), mapInst)
     }
-    val wInstance = makeInstance(mappedInstances(0), mappedAttr)
+    val wInstance = makeInstance(mappedInstances, mappedAttr)
     wInstance.setDataset(wekaInstanceCol)
     wInstance
   }
